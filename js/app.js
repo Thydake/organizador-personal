@@ -75,6 +75,7 @@
     droplet: '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5S5 13 5 15a7 7 0 0 0 7 7z"/>',
     wind: '<path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2M9.6 4.6A2 2 0 1 1 11 8H2M12.6 19.4A2 2 0 1 0 14 16H2"/>',
     refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+    logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
     grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     locate: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/>',
   };
@@ -642,9 +643,65 @@
       ${place ? `<div class="btn-row"><button class="btn ghost" data-action="use-location">${icon('locate')}Usar mi ubicación</button></div>` : ''}`;
   }
 
+  const SYNC_LABEL = {
+    off: 'Solo en este dispositivo', unsupported: 'Solo en este dispositivo', loading: 'Conectando…',
+    signedout: 'Sin sincronizar', syncing: 'Sincronizando…', synced: 'Sincronizado',
+    offline: 'Sin conexión', error: 'Error al sincronizar',
+  };
+
+  function agoText(ms) {
+    const min = Math.floor((Date.now() - ms) / 60000);
+    if (min < 1) return 'hace un momento';
+    if (min < 60) return `hace ${min} min`;
+    return `hace ${Math.floor(min / 60)} h`;
+  }
+
+  const syncPill = () => {
+    const s = Sync.state;
+    return `<a href="#ajustes" class="sync-pill st-${s.status}" title="Sincronización">
+      <span class="sync-dot"></span>${SYNC_LABEL[s.status] || ''}</a>`;
+  };
+
+  function syncSettings() {
+    const s = Sync.state;
+    const u = s.user;
+    const body = {
+      off: `<p class="muted">Aún no está conectada la nube (Firebase). Mientras tanto, tus datos se guardan solo en este dispositivo.</p>`,
+      unsupported: `<p class="muted">Para sincronizar, abre el organizador desde su web, no como archivo.</p>`,
+      loading: `<p class="muted">Conectando…</p>`,
+      signedout: `
+        <p class="muted">Entra con tu cuenta de Google en cada dispositivo y tus datos se mantendrán iguales en todos.</p>
+        <div class="btn-row"><button class="btn primary" data-action="sync-signin">${icon('cloud')}Entrar con Google</button></div>`,
+    }[s.status];
+    if (body) return body;
+
+    return `
+      <div class="sync-user">
+        ${u && u.photo ? `<img src="${esc(u.photo)}" alt="" referrerpolicy="no-referrer">` : `<span class="sync-avatar">${icon('cloud')}</span>`}
+        <div>
+          <strong>${esc(u ? (u.name || u.email) : '')}</strong>
+          <span class="muted small">${esc(u ? u.email : '')}</span>
+        </div>
+      </div>
+      <p class="sync-status st-${s.status}"><span class="sync-dot"></span>
+        ${s.status === 'synced' && s.lastSynced ? `Sincronizado ${agoText(s.lastSynced)}`
+          : s.status === 'offline' ? 'Sin conexión: los cambios se guardan aquí y se subirán al volver la conexión.'
+          : s.status === 'error' ? esc(s.error || 'Error al sincronizar.')
+          : SYNC_LABEL[s.status]}</p>
+      <div class="btn-row">
+        <button class="btn ghost" data-action="sync-now">${icon('refresh')}Sincronizar ahora</button>
+        <button class="btn ghost" data-action="sync-signout">${icon('logout')}Cerrar sesión</button>
+      </div>`;
+  }
+
   function viewSettings() {
     return `${pageHead('Ajustes', '', 'Personaliza el organizador y gestiona tus datos.')}
       <section class="settings-grid">
+        <article class="card wide">
+          ${cardHead('Sincronización entre dispositivos', { icon: 'cloud' })}
+          ${syncSettings()}
+        </article>
+
         <article class="card">
           ${cardHead('Perfil')}
           <label class="field"><span>Tu nombre (para el saludo)</span>
@@ -726,6 +783,7 @@
       .map(n => tab(`#${n.id}`, n.icon, n.label, ui.view === n.id, counts[n.id])).join('')
       + tab('', 'grid', 'Más', inMore, moreCount, 'open-more');
     $('#fab').hidden = ui.view === 'ajustes';
+    $('#sync-indicator').innerHTML = syncPill();
   }
 
   const MORE = [
@@ -838,7 +896,11 @@
     setTimeout(() => form.querySelector('input:not([type=radio]), textarea, select')?.focus(), 30);
   }
 
-  function closeModal() { $('#modal-root').innerHTML = ''; }
+  // Las hojas con clase `locked` exigen elegir una opción (solo se cierran con force).
+  function closeModal(force = false) {
+    if (!force && $('#modal-root .locked')) return;
+    $('#modal-root').innerHTML = '';
+  }
   const modalOpen = () => !!$('#modal-root').firstElementChild;
 
   // Crea o edita un elemento de una colección con el mismo formulario.
@@ -940,7 +1002,18 @@
       Store.remove(d.col, d.id);
       toast('Eliminado');
     },
-    'close-modal': closeModal,
+    'close-modal': () => closeModal(),
+    'sync-signin': () => Sync.signIn(),
+    'sync-signout': () => {
+      if (!confirm('¿Cerrar sesión? Tus datos se quedan en este dispositivo pero dejarán de sincronizarse.')) return;
+      Sync.signOut();
+    },
+    'sync-now': () => Sync.syncNow(),
+    'sync-choice': d => {
+      closeModal(true);
+      if (syncChoiceResolve) syncChoiceResolve(d.choice);
+      syncChoiceResolve = null;
+    },
     'open-more': () => openSheet('Más', MORE.map(n => sheetItem(n.icon, n.label, `href="#${n.id}"`)).join('')),
     'quick-add': () => {
       const direct = { calendario: 'add-event', tareas: 'add-task', correos: 'add-email', entregas: 'add-delivery', notas: 'add-note' };
@@ -1031,9 +1104,32 @@
 
   /* ---------- Arranque ---------- */
 
+  let syncChoiceResolve = null;
+
+  // Primera vez que este dispositivo encuentra datos en la nube.
+  function chooseSyncStart() {
+    return new Promise(resolve => {
+      syncChoiceResolve = resolve;
+      openSheet('Ya tienes datos en la nube', `
+        <p class="muted sheet-text">¿Qué hacemos con los datos que hay en este dispositivo?</p>
+        ${sheetItem('cloud', 'Usar los de la nube (recomendado)', 'data-action="sync-choice" data-choice="cloud"')}
+        ${sheetItem('refresh', 'Combinar con los de este dispositivo', 'data-action="sync-choice" data-choice="merge"')}`);
+      $('#modal-root .modal-backdrop').classList.add('locked');
+    });
+  }
+
   function init() {
     Store.init(seed);
     Store.subscribe(render);
+
+    Sync.setChooser(chooseSyncStart);
+    let lastSyncStatus = Sync.state.status;
+    Sync.subscribe(s => {
+      $('#sync-indicator').innerHTML = syncPill();
+      if (ui.view === 'ajustes' && s.status !== lastSyncStatus && !modalOpen()) render();
+      lastSyncStatus = s.status;
+    });
+    Sync.boot();
 
     document.addEventListener('click', ev => {
       if (ev.target.classList.contains('modal-backdrop')) return closeModal();
