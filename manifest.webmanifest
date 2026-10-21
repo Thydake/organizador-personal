@@ -1,0 +1,15 @@
+{
+  "name": "Organizador Personal",
+  "short_name": "Organizador",
+  "description": "Tu día en una sola vista: calendario, tareas, correos, entregas y notas.",
+  "lang": "es",
+  "start_url": "./index.html#panel",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06090a",
+  "theme_color": "#06090a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#06090a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Organizador">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <title>Organizador Personal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <a class="brand" href="#panel">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <g stroke="currentColor" stroke-width="3.2" stroke-linecap="round">
+            <path d="M16 3v8M16 21v8M3 16h8M21 16h8M6.8 6.8l5.6 5.6M19.6 19.6l5.6 5.6M25.2 6.8l-5.6 5.6M12.4 19.6l-5.6 5.6"/>
+          </g>
+        </svg>
+        <span>Organizador</span>
+      </a>
+      <nav id="nav" class="nav" aria-label="Secciones"></nav>
+      <div class="sidebar-foot">
+        <a href="#ajustes" id="nav-settings" class="nav-item">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+          <span>Ajustes</span>
+        </a>
+        <p class="tagline">Conecta. Organiza. Resume.</p>
+      </div>
+    </aside>
+
+    <main id="main" class="main">
+      <div id="view" class="view"></div>
+    </main>
+  </div>
+
+  <!-- Solo en móvil -->
+  <nav id="tabbar" class="tabbar" aria-label="Secciones"></nav>
+  <button id="fab" class="fab" data-action="quick-add" aria-label="Crear">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+
+  <div id="modal-root"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
+
+  <script src="js/store.js"></script>
+  <script src="js/integrations.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
