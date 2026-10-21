@@ -10,7 +10,7 @@
  */
 const Store = (() => {
   const KEY = 'organizador-personal:v1';
-  const COLLECTIONS = ['events', 'tasks', 'emails', 'deliveries', 'notes'];
+  const COLLECTIONS = ['events', 'tasks', 'emails', 'deliveries', 'notes', 'projects', 'ideas', 'timelogs'];
   const listeners = new Set();
   let state = null;
   let batching = false;

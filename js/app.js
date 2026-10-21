@@ -78,6 +78,17 @@
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
     grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     locate: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/>',
+    briefcase: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2M2 13h20"/>',
+    clip: '<path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>',
+    play: '<path d="M7 4v16l13-8z"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+    kanban: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7v7M12 7v4M16 7v9"/>',
+    list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    external: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+    up: '<path d="m18 15-6-6-6 6"/>',
+    down: '<path d="m6 9 6 6 6-6"/>',
+    timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/>',
+    convert: '<path d="M4 12h12M12 6l6 6-6 6"/><path d="M4 5v14"/>',
   };
   const icon = (name, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 
@@ -88,14 +99,72 @@
   const COLORS = { aqua: 'Aquamarina', orange: 'Naranja', violet: 'Violeta', sky: 'Azul' };
   const EMAIL_STATUS = { sin_leer: 'Sin leer', responder: 'Por responder', esperando: 'Esperando respuesta', hecho: 'Hecho' };
 
+  const TASK_STATUS = { todo: 'Por hacer', doing: 'En curso', review: 'En revisión', done: 'Hecho' };
+  const PROJECT_STATUS = { activo: 'Activo', pausa: 'En pausa', terminado: 'Terminado' };
+  const IDEA_STATUS = { nueva: 'Nueva', evaluando: 'Evaluando', aprobada: 'Aprobada', descartada: 'Descartada', convertida: 'Convertida' };
+  const IMPACT = { alto: 'Impacto alto', medio: 'Impacto medio', bajo: 'Impacto bajo' };
+
   const prioOf = x => PRIO_ORDER[x.priority] ?? 1;
   const prioBadge = p => `<span class="prio prio-${p || 'media'}">${PRIORITY[p] || 'Media'}</span>`;
+
+  const uidLocal = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const slug = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const fmtMinutes = m => {
+    const h = Math.floor(m / 60), r = Math.round(m % 60);
+    return h ? `${h} h${r ? ` ${r} min` : ''}` : `${r} min`;
+  };
+  const fmtSize = b => b < 1024 ? `${b} B` : b < 1048576 ? `${Math.round(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`;
 
   /* ---------- Datos de ejemplo ---------- */
 
   function seed(make) {
     const t = today();
+    const phases = (pid, names) => names.map((name, i) => ({ id: `${pid}-f${i + 1}`, name }));
+    const alpha = make({
+      id: 'p-proyecto-alpha', name: 'Proyecto Alpha', client: 'Alpha Studio', status: 'activo', color: 'aqua',
+      start: addDays(t, -14), due: addDays(t, 21),
+      description: 'Rediseño de la app móvil de Alpha: investigación, diseño, desarrollo y lanzamiento.',
+      phases: phases('p-proyecto-alpha', ['Descubrimiento', 'Diseño', 'Desarrollo', 'Lanzamiento']),
+      links: [{ id: 'l1', title: 'Carpeta del proyecto (Drive)', url: 'https://drive.google.com' }],
+      attachments: [],
+    });
+    const mkt = make({
+      id: 'p-marketing', name: 'Campaña de marketing Q4', client: 'Interno', status: 'activo', color: 'orange',
+      start: addDays(t, -7), due: addDays(t, 30), description: 'Campaña de fin de año en redes y newsletter.',
+      phases: phases('p-marketing', ['Planificación', 'Contenido', 'Publicación']), links: [], attachments: [],
+    });
+    const prod = make({
+      id: 'p-producto', name: 'Producto', client: 'Interno', status: 'activo', color: 'violet',
+      description: 'Mejoras continuas a partir del feedback de clientes.',
+      phases: phases('p-producto', ['Investigación', 'Mejoras']), links: [], attachments: [],
+    });
+    const fin = make({
+      id: 'p-finanzas', name: 'Finanzas', client: 'Interno', status: 'pausa', color: 'sky',
+      description: 'Presupuesto y control de gastos.', phases: [], links: [], attachments: [],
+    });
+    const task = (title, extra) => make({ title, priority: 'media', due: '', projectId: '', phaseId: '', status: 'todo', done: false, subtasks: [], ...extra });
+    const sub = (title, done = false) => ({ id: uidLocal('s'), title, done });
+    const tPres = task('Finalizar presentación de producto', {
+      priority: 'alta', due: t, projectId: alpha.id, phaseId: 'p-proyecto-alpha-f2', status: 'doing', order: 0,
+      subtasks: [sub('Estructura de la presentación', true), sub('Diapositivas de resultados'), sub('Ensayo con el equipo')],
+    });
+    const tWire = task('Wireframes de la app', { projectId: alpha.id, phaseId: 'p-proyecto-alpha-f2', status: 'review', order: 0, due: addDays(t, 2) });
+    const tPlan = task('Planificar contenido de la próxima semana', { due: addDays(t, 3), projectId: mkt.id, phaseId: 'p-marketing-f1', status: 'doing', order: 0 });
+
     return {
+      projects: [alpha, mkt, prod, fin],
+      ideas: [
+        make({ title: 'Modo oscuro automático en la app', body: 'Que cambie según la hora del día.', projectId: alpha.id, status: 'evaluando', impact: 'medio', attachments: [] }),
+        make({ title: 'Newsletter mensual para clientes', body: 'Resumen de novedades + caso de éxito del mes.', projectId: mkt.id, status: 'nueva', impact: 'alto', attachments: [] }),
+        make({ title: 'Automatizar informes con plantillas', body: 'Plantilla única para los informes mensuales.', projectId: '', status: 'aprobada', impact: 'alto', attachments: [] }),
+        make({ title: 'Podcast del equipo', body: '', projectId: '', status: 'descartada', impact: 'bajo', attachments: [] }),
+      ],
+      timelogs: [
+        make({ taskId: tPres.id, projectId: alpha.id, date: addDays(t, -1), minutes: 90, note: '' }),
+        make({ taskId: tWire.id, projectId: alpha.id, date: addDays(t, -2), minutes: 120, note: 'Primera versión' }),
+        make({ taskId: tPlan.id, projectId: mkt.id, date: addDays(t, -1), minutes: 45, note: '' }),
+      ],
       settings: { name: '' },
       events: [
         make({ title: 'Reunión de equipo de producto', date: t, start: '09:00', end: '09:45', color: 'aqua', location: 'Sala 2' }),
@@ -107,12 +176,15 @@
         make({ title: '1:1 con Laura', date: addDays(t, 2), start: '09:30', end: '10:00', color: 'aqua' }),
       ],
       tasks: [
-        make({ title: 'Finalizar presentación de producto', priority: 'alta', due: t, project: 'Proyecto Alpha', done: false }),
-        make({ title: 'Revisar feedback de clientes', priority: 'alta', due: addDays(t, 1), project: 'Producto', done: false }),
-        make({ title: 'Responder correos importantes', priority: 'media', due: t, project: '', done: false }),
-        make({ title: 'Planificar contenido de la próxima semana', priority: 'media', due: addDays(t, 3), project: 'Marketing', done: false }),
-        make({ title: 'Actualizar presupuesto Q4', priority: 'baja', due: addDays(t, 5), project: 'Finanzas', done: false }),
-        make({ title: 'Enviar acta de la reunión', priority: 'media', due: addDays(t, -1), project: 'Producto', done: true }),
+        tPres, tWire, tPlan,
+        task('Entrevistas con usuarios', { projectId: alpha.id, phaseId: 'p-proyecto-alpha-f1', status: 'done', done: true, order: 0 }),
+        task('Configurar entorno de desarrollo', { projectId: alpha.id, phaseId: 'p-proyecto-alpha-f3', order: 0 }),
+        task('Plan de lanzamiento', { priority: 'baja', due: addDays(t, 18), projectId: alpha.id, phaseId: 'p-proyecto-alpha-f4', order: 1 }),
+        task('Revisar feedback de clientes', { priority: 'alta', due: addDays(t, 1), projectId: prod.id, phaseId: 'p-producto-f1' }),
+        task('Enviar acta de la reunión', { due: addDays(t, -1), projectId: prod.id, status: 'done', done: true }),
+        task('Diseñar piezas para redes', { due: addDays(t, 6), projectId: mkt.id, phaseId: 'p-marketing-f2' }),
+        task('Actualizar presupuesto Q4', { priority: 'baja', due: addDays(t, 5), projectId: fin.id }),
+        task('Responder correos importantes', { due: t }),
       ],
       emails: [
         make({ from: 'Ana Pérez', subject: 'Propuesta revisada para Alpha', status: 'responder', priority: 'alta', date: t }),
@@ -122,10 +194,10 @@
         make({ from: 'Newsletter Diseño', subject: 'Tendencias de la semana', status: 'hecho', priority: 'baja', date: addDays(t, -3) }),
       ],
       deliveries: [
-        make({ title: 'Informe mensual de resultados', date: addDays(t, 1), project: 'Proyecto Alpha', done: false }),
-        make({ title: 'Mockups v2 de la app', date: addDays(t, 4), project: 'Diseño', done: false }),
-        make({ title: 'Propuesta comercial Beta', date: addDays(t, 10), project: 'Ventas', done: false }),
-        make({ title: 'Guion del vídeo de lanzamiento', date: addDays(t, -2), project: 'Marketing', done: true }),
+        make({ title: 'Informe mensual de resultados', date: addDays(t, 1), projectId: alpha.id, done: false }),
+        make({ title: 'Mockups v2 de la app', date: addDays(t, 4), projectId: alpha.id, done: false }),
+        make({ title: 'Propuesta comercial Beta', date: addDays(t, 10), projectId: '', done: false }),
+        make({ title: 'Guion del vídeo de lanzamiento', date: addDays(t, -2), projectId: mkt.id, done: true }),
       ],
       notes: [
         make({ title: 'Nota del día', body: 'Enfócate en lo que mueve la aguja.\nPequeños avances, grandes resultados.', pinned: true }),
@@ -148,9 +220,79 @@
   const sortEmails = list => list.slice().sort((a, b) =>
     (prioOf(a) - prioOf(b)) || (b.date || '').localeCompare(a.date || ''));
 
+  /* ---------- Trabajo: proyectos, tareas, tiempo ---------- */
+
+  const statusOf = t => t.status || (t.done ? 'done' : 'todo');
+  const projectOf = x => (x && x.projectId ? Store.get('projects', x.projectId) : null);
+  const phaseOf = t => { const p = projectOf(t); return p && t.phaseId ? (p.phases || []).find(f => f.id === t.phaseId) : null; };
+  const projectTasks = pid => Store.all('tasks').filter(t => t.projectId === pid);
+  const boardSort = list => list.slice().sort((a, b) =>
+    ((a.order ?? 1e9) - (b.order ?? 1e9)) || (prioOf(a) - prioOf(b)) || (a.due || '9999').localeCompare(b.due || '9999'));
+  const minutesFor = (key, id) => Store.all('timelogs').filter(l => l[key] === id).reduce((s, l) => s + (l.minutes || 0), 0);
+
+  function projectStats(p) {
+    const tasks = projectTasks(p.id);
+    const done = tasks.filter(t => statusOf(t) === 'done').length;
+    return {
+      tasks, done,
+      total: tasks.length,
+      pct: tasks.length ? Math.round((done / tasks.length) * 100) : 0,
+      open: tasks.length - done,
+      dels: Store.all('deliveries').filter(x => x.projectId === p.id && !x.done).sort((a, b) => a.date.localeCompare(b.date)),
+      ideas: Store.all('ideas').filter(i => i.projectId === p.id && !['descartada', 'convertida'].includes(i.status)).length,
+      minutes: minutesFor('projectId', p.id),
+    };
+  }
+
+  const projectOptions = (current = '') => {
+    const opts = { '': 'Sin proyecto' };
+    Store.all('projects')
+      .filter(p => p.status !== 'terminado' || p.id === current)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach(p => { opts[p.id] = p.name; });
+    return opts;
+  };
+  const phaseOptions = pid => {
+    const opts = { '': 'Sin fase' };
+    ((Store.get('projects', pid) || {}).phases || []).forEach(f => { opts[f.id] = f.name; });
+    return opts;
+  };
+
+  // Convierte el antiguo campo de texto `project` en proyectos reales. Los ids
+  // dependen del nombre para que dos dispositivos migren al mismo proyecto.
+  function migrateWork() {
+    const tasks = Store.all('tasks');
+    const dels = Store.all('deliveries');
+    const pending = [...tasks, ...dels].some(x => x.project && !x.projectId) || tasks.some(t => !t.status);
+    if (!pending) return;
+    const deleted = Store.exportData().deleted;
+    const colors = Object.keys(COLORS);
+    Store.batch(() => {
+      const ensureProject = name => {
+        const id = `p-${slug(name)}`;
+        if (Store.get('projects', id)) return id;
+        if (deleted[id]) return '';
+        Store.add('projects', {
+          id, name, client: '', status: 'activo', color: colors[slug(name).length % colors.length],
+          description: '', phases: [], links: [], attachments: [],
+        });
+        return id;
+      };
+      tasks.forEach(t => {
+        const patch = {};
+        if (t.project && !t.projectId) { patch.projectId = ensureProject(t.project); patch.project = ''; }
+        if (!t.status) patch.status = t.done ? 'done' : 'todo';
+        if (Object.keys(patch).length) Store.update('tasks', t.id, patch);
+      });
+      dels.forEach(x => {
+        if (x.project && !x.projectId) Store.update('deliveries', x.id, { projectId: ensureProject(x.project), project: '' });
+      });
+    });
+  }
+
   /* ---------- Estado de la interfaz ---------- */
 
-  const VIEWS = ['panel', 'calendario', 'tareas', 'correos', 'entregas', 'notas', 'ajustes'];
+  const VIEWS = ['panel', 'calendario', 'tareas', 'correos', 'entregas', 'notas', 'ajustes', 'proyectos', 'ideas'];
   const ui = {
     view: 'panel',
     date: today(),
@@ -159,6 +301,12 @@
     taskQuery: '',
     emailFilter: 'pendientes',
     city: { query: '', results: [], loading: false, error: '' },
+    projectFilter: 'activo',
+    projectId: null,
+    projectTab: 'tablero',
+    boardPhase: '',
+    ideaFilter: 'activas',
+    ideaProject: '',
   };
 
   /* ---------- Componentes ---------- */
@@ -178,8 +326,24 @@
       </div>
     </div>`;
 
-  function taskRow(t, { actions = false } = {}) {
+  const projectTag = x => {
+    const p = projectOf(x);
+    return p ? `<span class="tag ptag c-${p.color || 'aqua'}"><span class="pdot"></span>${esc(p.name)}</span>` : '';
+  };
+
+  const subtaskCount = t => {
+    const s = t.subtasks || [];
+    return s.length ? `<span class="due" title="Subtareas">${icon('list')}${s.filter(x => x.done).length}/${s.length}</span>` : '';
+  };
+
+  const timerRunning = id => (Store.getSetting('timer') || {}).taskId === id;
+  const timerButton = t => statusOf(t) === 'done' ? '' : `
+    <button class="icon-btn xs timer-btn ${timerRunning(t.id) ? 'on' : ''}" data-action="timer-toggle" data-id="${t.id}"
+      title="${timerRunning(t.id) ? 'Parar cronómetro' : 'Iniciar cronómetro'}">${icon(timerRunning(t.id) ? 'stop' : 'play')}</button>`;
+
+  function taskRow(t, { actions = false, showProject = true } = {}) {
     const overdue = !t.done && t.due && t.due < today();
+    const st = statusOf(t);
     return `
       <li class="row task-row ${t.done ? 'is-done' : ''}">
         <button class="check ${t.done ? 'on' : ''}" data-action="toggle-task" data-id="${t.id}"
@@ -188,10 +352,13 @@
           <span class="row-title">${esc(t.title)}</span>
           <span class="row-meta">
             ${prioBadge(t.priority)}
-            ${t.project ? `<span class="tag">${esc(t.project)}</span>` : ''}
+            ${st === 'doing' || st === 'review' ? `<span class="kstatus ks-${st}">${TASK_STATUS[st]}</span>` : ''}
+            ${showProject ? projectTag(t) : ''}
             ${t.due ? `<span class="due ${overdue ? 'overdue' : ''}">${icon('clock')}${relDay(t.due)}</span>` : ''}
+            ${subtaskCount(t)}
           </span>
         </div>
+        ${t.projectId ? timerButton(t) : ''}
         ${actions ? rowActions('tasks', t.id, 'edit-task') : ''}
       </li>`;
   }
@@ -215,7 +382,7 @@
       </li>`;
   }
 
-  function deliveryRow(x, { actions = false } = {}) {
+  function deliveryRow(x, { actions = false, showProject = true } = {}) {
     const n = diffDays(x.date, today());
     const urgency = x.done ? '' : n < 0 ? 'overdue' : n <= 1 ? 'soon' : '';
     return `
@@ -225,7 +392,7 @@
         <div class="row-main" data-action="edit-delivery" data-id="${x.id}">
           <span class="row-title">${esc(x.title)}</span>
           <span class="row-meta">
-            ${x.project ? `<span class="tag">${esc(x.project)}</span>` : ''}
+            ${showProject ? projectTag(x) : ''}
             <span class="due ${urgency}">${icon('package')}${relDay(x.date)} · ${fmtShort(x.date)}</span>
           </span>
         </div>
@@ -397,6 +564,8 @@
     }).join('')}</ul>` : emptyState('No hay reuniones este día.', 'add-event', 'Añadir evento');
 
     const topTasks = sortTasks(pending).slice(0, 5);
+    const activeProjects = Store.all('projects').filter(p => p.status === 'activo')
+      .sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
     const pinned = Store.all('notes').find(n => n.pinned)
       || Store.all('notes').slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
 
@@ -446,6 +615,19 @@
           ${dels.length ? `<ul class="rows">${dels.slice(0, 4).map(x => deliveryRow(x)).join('')}</ul>`
             : emptyState('Sin entregas en los próximos 7 días.', 'add-delivery', 'Nueva entrega')}
         </article>
+
+        ${activeProjects.length ? `
+        <article class="card wide-card">
+          ${cardHead('Proyectos activos', { icon: 'briefcase', add: 'add-project', go: 'proyectos', goLabel: 'Ver proyectos' })}
+          <div class="mini-projects">${activeProjects.slice(0, 4).map(p => {
+            const s = projectStats(p);
+            return `<a class="mini-project c-${p.color || 'aqua'}" href="#proyecto/${p.id}">
+              <span class="mini-name"><span class="pdot"></span>${esc(p.name)}</span>
+              <div class="pcard-progress">${progressBar(s.pct)}<span>${s.pct}%</span></div>
+              <span class="muted small">${s.open} abiertas${s.dels[0] ? ` · entrega ${relDay(s.dels[0].date).toLowerCase()}` : ''}</span>
+            </a>`;
+          }).join('')}</div>
+        </article>` : ''}
 
         <article class="card note-card">
           <span class="note-icon">${icon('bulb')}</span>
@@ -529,7 +711,7 @@
   function taskListHTML() {
     const q = ui.taskQuery.trim().toLowerCase();
     const list = sortTasks(Store.all('tasks').filter(taskFilterFn(ui.taskFilter)))
-      .filter(x => !q || `${x.title} ${x.project || ''}`.toLowerCase().includes(q));
+      .filter(x => !q || `${x.title} ${(projectOf(x) || {}).name || ''}`.toLowerCase().includes(q));
     return list.length ? list.map(t => taskRow(t, { actions: true })).join('')
       : `<li>${emptyState(q ? 'Ninguna tarea coincide con la búsqueda.' : 'No hay tareas aquí.', 'add-task', 'Nueva tarea')}</li>`;
   }
@@ -620,6 +802,342 @@
           </footer>
         </article>`).join('')}</section>`
         : `<section class="card">${emptyState('Aún no tienes notas.', 'add-note', 'Nueva nota')}</section>`}`;
+  }
+
+  /* ---------- Vistas de trabajo ---------- */
+
+  const progressBar = (pct, cls = '') => `<div class="progress ${cls}"><span style="width:${pct}%"></span></div>`;
+
+  function attachmentsHTML(col, item) {
+    const list = item.attachments || [];
+    return `
+      <div class="attachments" data-drop-attach data-col="${col}" data-id="${item.id}">
+        ${list.map(a => `
+          <div class="att">
+            <button class="att-open" data-action="open-file" data-file="${a.id}" title="${esc(a.name)}">
+              ${(a.type || '').startsWith('image/')
+                ? `<img data-thumb="${a.id}" alt="">`
+                : `<span class="att-icon">${icon('file')}</span>`}
+              <span class="att-name">${esc(a.name)}</span>
+              <span class="att-size">${fmtSize(a.size)}${a.cloud ? '' : ' · solo aquí'}</span>
+            </button>
+            <button class="icon-btn xs danger att-del" data-action="remove-file" data-col="${col}" data-id="${item.id}"
+              data-file="${a.id}" title="Quitar">${icon('x')}</button>
+          </div>`).join('')}
+        <button class="att-add" data-action="attach" data-col="${col}" data-id="${item.id}">
+          ${icon('clip')}<span>Adjuntar</span><small>o arrastra aquí</small>
+        </button>
+      </div>`;
+  }
+
+  // Carga las miniaturas de imágenes después de pintar.
+  function hydrateThumbs() {
+    document.querySelectorAll('img[data-thumb]:not([src])').forEach(img => {
+      Files.url(img.dataset.thumb).then(u => {
+        if (u) img.src = u;
+        else img.replaceWith(Object.assign(document.createElement('span'), { className: 'att-icon missing', innerHTML: icon('file') }));
+      }).catch(() => {});
+    });
+  }
+
+  function projectCard(p) {
+    const s = projectStats(p);
+    const next = s.dels[0];
+    return `
+      <a class="pcard c-${p.color || 'aqua'}" href="#proyecto/${p.id}">
+        <div class="pcard-top">
+          <span class="pstatus ps-${p.status}">${PROJECT_STATUS[p.status] || ''}</span>
+          ${p.due ? `<span class="due ${p.status === 'activo' && p.due < today() ? 'overdue' : ''}">${icon('calendar')}${fmtShort(p.due)}</span>` : ''}
+        </div>
+        <h3><span class="pdot"></span>${esc(p.name)}</h3>
+        ${p.client ? `<p class="muted small">${esc(p.client)}</p>` : ''}
+        <div class="pcard-progress">${progressBar(s.pct)}<span>${s.pct}%</span></div>
+        <div class="pcard-meta">
+          <span>${icon('check')}${s.done}/${s.total}</span>
+          ${next ? `<span class="${diffDays(next.date, today()) <= 1 ? 'warn' : ''}">${icon('package')}${relDay(next.date)}</span>` : ''}
+          ${s.ideas ? `<span>${icon('bulb')}${s.ideas}</span>` : ''}
+          ${s.minutes ? `<span>${icon('timer')}${fmtMinutes(s.minutes)}</span>` : ''}
+        </div>
+      </a>`;
+  }
+
+  function viewProjects() {
+    const all = Store.all('projects');
+    const filters = { activo: p => p.status === 'activo', pausa: p => p.status === 'pausa', terminado: p => p.status === 'terminado', todos: () => true };
+    const list = all.filter(filters[ui.projectFilter]).sort((a, b) =>
+      (a.due || '9999').localeCompare(b.due || '9999') || a.name.localeCompare(b.name));
+    return `${pageHead('Proyectos', 'de trabajo', 'Tareas, fases, entregas, ideas y tiempo de cada proyecto.',
+        `<button class="btn primary" data-action="add-project">${icon('plus')}Nuevo proyecto</button>`)}
+      <div class="toolbar">
+        ${chips('filter-projects', ui.projectFilter, [
+          ['activo', 'Activos', all.filter(filters.activo).length],
+          ['pausa', 'En pausa', all.filter(filters.pausa).length],
+          ['terminado', 'Terminados', all.filter(filters.terminado).length],
+          ['todos', 'Todos', all.length],
+        ])}
+      </div>
+      ${list.length ? `<section class="project-grid">${list.map(projectCard).join('')}</section>`
+        : `<section class="card">${emptyState('No hay proyectos aquí.', 'add-project', 'Nuevo proyecto')}</section>`}`;
+  }
+
+  const PROJECT_TABS = [
+    ['tablero', 'Tablero', 'kanban'], ['fases', 'Fases', 'list'], ['entregas', 'Entregas', 'package'],
+    ['ideas', 'Ideas', 'bulb'], ['recursos', 'Recursos', 'clip'], ['tiempo', 'Tiempo', 'timer'],
+  ];
+
+  function viewProject() {
+    const p = Store.get('projects', ui.projectId);
+    const s = projectStats(p);
+    const counts = { entregas: s.dels.length, ideas: s.ideas, recursos: (p.links || []).length + (p.attachments || []).length };
+    const body = {
+      tablero: projectBoard, fases: projectPhases, entregas: projectDeliveries,
+      ideas: projectIdeas, recursos: projectResources, tiempo: projectTime,
+    }[ui.projectTab] || projectBoard;
+
+    return `
+      <a class="back-link" href="#proyectos">${icon('left')}Proyectos</a>
+      <header class="project-head c-${p.color || 'aqua'}">
+        <div class="project-title">
+          <h1><span class="pdot big"></span>${esc(p.name)}</h1>
+          <p class="sub">${[p.client && esc(p.client),
+            p.start && `Desde ${fmtShort(p.start)}`, p.due && `Entrega final ${fmtShort(p.due)}`].filter(Boolean).join(' · ')}</p>
+          ${p.description ? `<p class="project-desc">${esc(p.description)}</p>` : ''}
+        </div>
+        <div class="project-actions">
+          <select class="status-select" data-change="project-status" data-id="${p.id}" aria-label="Estado del proyecto">
+            ${Object.entries(PROJECT_STATUS).map(([v, l]) => `<option value="${v}" ${v === p.status ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+          <button class="btn ghost" data-action="edit-project" data-id="${p.id}">${icon('edit')}Editar</button>
+          <button class="btn primary" data-action="add-task" data-project="${p.id}">${icon('plus')}Nueva tarea</button>
+        </div>
+      </header>
+
+      <section class="project-kpis">
+        <div class="kpi kpi-progress"><span class="kpi-label">Progreso</span>
+          <div class="kpi-row">${progressBar(s.pct, 'lg')}<strong>${s.pct}%</strong></div>
+          <span class="muted small">${s.done} de ${s.total} tareas hechas</span></div>
+        <div class="kpi"><span class="kpi-label">Abiertas</span><strong>${s.open}</strong><span class="muted small">tareas</span></div>
+        <div class="kpi"><span class="kpi-label">Próxima entrega</span><strong>${s.dels[0] ? relDay(s.dels[0].date) : '—'}</strong>
+          <span class="muted small">${s.dels[0] ? esc(s.dels[0].title) : 'Sin entregas pendientes'}</span></div>
+        <div class="kpi"><span class="kpi-label">Tiempo</span><strong>${s.minutes ? fmtMinutes(s.minutes) : '0 min'}</strong><span class="muted small">registrado</span></div>
+      </section>
+
+      <nav class="tabs" role="tablist">
+        ${PROJECT_TABS.map(([key, label, ic]) => `
+          <button class="tab-btn ${ui.projectTab === key ? 'active' : ''}" data-action="project-tab" data-tab="${key}" role="tab">
+            ${icon(ic)}${label}${counts[key] ? `<span class="chip-count">${counts[key]}</span>` : ''}
+          </button>`).join('')}
+      </nav>
+      <section class="tab-body">${body(p, s)}</section>`;
+  }
+
+  function projectBoard(p, s) {
+    const phases = p.phases || [];
+    const tasks = s.tasks.filter(t => !ui.boardPhase || t.phaseId === ui.boardPhase);
+    const card = t => {
+      const ph = phaseOf(t);
+      const overdue = statusOf(t) !== 'done' && t.due && t.due < today();
+      const mins = minutesFor('taskId', t.id);
+      return `
+        <article class="kcard ${timerRunning(t.id) ? 'is-timing' : ''}" draggable="true" data-id="${t.id}" data-action="edit-task">
+          <div class="kcard-top">
+            ${ph ? `<span class="tag">${esc(ph.name)}</span>` : ''}
+            ${prioBadge(t.priority)}
+          </div>
+          <span class="kcard-title">${esc(t.title)}</span>
+          <div class="kcard-meta">
+            ${t.due ? `<span class="due ${overdue ? 'overdue' : ''}">${icon('clock')}${relDay(t.due)}</span>` : ''}
+            ${subtaskCount(t)}
+            ${mins ? `<span class="due">${icon('timer')}${fmtMinutes(mins)}</span>` : ''}
+            <span class="spacer"></span>
+            ${timerButton(t)}
+          </div>
+        </article>`;
+    };
+    return `
+      ${phases.length ? `<div class="toolbar">${chips('board-phase', ui.boardPhase,
+        [['', 'Todas las fases'], ...phases.map(f => [f.id, f.name])])}</div>` : ''}
+      <div class="board">
+        ${Object.entries(TASK_STATUS).map(([st, label]) => {
+          const col = boardSort(tasks.filter(t => statusOf(t) === st));
+          return `
+            <div class="kcol ks-${st}" data-status="${st}">
+              <div class="kcol-head"><span class="kdot"></span>${label}<span class="chip-count">${col.length}</span></div>
+              <div class="kcol-body">
+                ${col.map(card).join('')}
+                <button class="kadd" data-action="add-task" data-project="${p.id}" data-status="${st}"
+                  ${ui.boardPhase ? `data-phase="${ui.boardPhase}"` : ''}>${icon('plus')}Añadir</button>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+      <p class="muted small board-hint">Arrastra las tarjetas entre columnas. En el móvil, toca una tarjeta para cambiar su estado.</p>`;
+  }
+
+  function projectPhases(p, s) {
+    const phases = p.phases || [];
+    const group = (f, i) => {
+      const tasks = sortTasks(s.tasks.filter(t => (f ? t.phaseId === f.id : !phases.some(x => x.id === t.phaseId))));
+      if (!f && !tasks.length) return '';
+      const done = tasks.filter(t => statusOf(t) === 'done').length;
+      const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+      return `
+        <section class="card phase">
+          <div class="card-head">
+            <h3>${f ? `<span class="phase-num">${i + 1}</span>${esc(f.name)}` : 'Sin fase'}<span class="chip-count">${done}/${tasks.length}</span></h3>
+            <div class="card-head-actions">
+              ${f ? `
+                <button class="icon-btn" data-action="phase-move" data-phase="${f.id}" data-dir="-1" title="Subir" ${i === 0 ? 'disabled' : ''}>${icon('up')}</button>
+                <button class="icon-btn" data-action="phase-move" data-phase="${f.id}" data-dir="1" title="Bajar" ${i === phases.length - 1 ? 'disabled' : ''}>${icon('down')}</button>
+                <button class="icon-btn" data-action="phase-rename" data-phase="${f.id}" title="Renombrar">${icon('edit')}</button>
+                <button class="icon-btn danger" data-action="phase-delete" data-phase="${f.id}" title="Eliminar fase">${icon('trash')}</button>` : ''}
+            </div>
+          </div>
+          ${tasks.length ? progressBar(pct, 'sm') : ''}
+          <ul class="rows">${tasks.map(t => taskRow(t, { actions: true, showProject: false })).join('')}</ul>
+          <button class="btn ghost sm" data-action="add-task" data-project="${p.id}" ${f ? `data-phase="${f.id}"` : ''}>${icon('plus')}Añadir tarea${f ? ` a ${esc(f.name)}` : ''}</button>
+        </section>`;
+    };
+    return `
+      ${phases.map(group).join('')}
+      ${group(null)}
+      <button class="btn ghost" data-action="phase-add">${icon('plus')}Nueva fase</button>`;
+  }
+
+  function projectDeliveries(p) {
+    const list = Store.all('deliveries').filter(x => x.projectId === p.id)
+      .sort((a, b) => (a.done - b.done) || a.date.localeCompare(b.date));
+    return `
+      <section class="card">
+        ${cardHead('Entregas del proyecto', { icon: 'package', add: 'add-delivery', addData: `data-project="${p.id}"` })}
+        ${list.length ? `<ul class="rows">${list.map(x => deliveryRow(x, { actions: true, showProject: false })).join('')}</ul>`
+          : emptyState('Este proyecto aún no tiene entregas.', '', '')}
+      </section>`;
+  }
+
+  function projectIdeas(p) {
+    const list = Store.all('ideas').filter(i => i.projectId === p.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return `
+      <div class="toolbar"><span class="muted">Ideas ligadas a este proyecto.</span>
+        <button class="btn ghost" data-action="add-idea" data-project="${p.id}">${icon('plus')}Nueva idea</button></div>
+      ${list.length ? `<section class="ideas-grid">${list.map(i => ideaCard(i, { showProject: false })).join('')}</section>`
+        : `<section class="card">${emptyState('Sin ideas todavía.', '', '')}</section>`}`;
+  }
+
+  function projectResources(p) {
+    const links = p.links || [];
+    return `
+      <section class="card">
+        ${cardHead('Enlaces', { icon: 'link', add: 'add-link', addData: `data-id="${p.id}"` })}
+        ${links.length ? `<ul class="rows">${links.map(l => `
+          <li class="row">
+            <span class="link-icon">${icon('external')}</span>
+            <a class="row-main" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">
+              <span class="row-title">${esc(l.title || l.url)}</span>
+              <span class="row-meta">${esc(l.url)}</span>
+            </a>
+            <button class="icon-btn danger" data-action="remove-link" data-id="${p.id}" data-link="${l.id}" title="Quitar">${icon('trash')}</button>
+          </li>`).join('')}</ul>`
+          : `<p class="muted">Guarda aquí enlaces a Drive, Figma, documentos…</p>`}
+      </section>
+      <section class="card">
+        ${cardHead('Archivos', { icon: 'clip' })}
+        ${attachmentsHTML('projects', p)}
+        <p class="muted small att-hint">Las imágenes se comprimen solas. Otros archivos se sincronizan si pesan hasta ${fmtSize(Files.MAX_CLOUD)}; los más grandes quedan solo en este dispositivo.</p>
+      </section>`;
+  }
+
+  function projectTime(p, s) {
+    const logs = Store.all('timelogs').filter(l => l.projectId === p.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const byTask = {};
+    logs.forEach(l => { byTask[l.taskId || ''] = (byTask[l.taskId || ''] || 0) + (l.minutes || 0); });
+    const taskName = id => (Store.get('tasks', id) || {}).title || 'Sin tarea';
+    return `
+      <section class="time-grid">
+        <article class="card">
+          ${cardHead('Por tarea', { icon: 'check' })}
+          ${Object.keys(byTask).length ? `<ul class="rows">${Object.entries(byTask).sort((a, b) => b[1] - a[1]).map(([id, m]) => `
+            <li class="row"><div class="row-main"><span class="row-title">${esc(taskName(id))}</span>
+              ${progressBar(Math.round((m / s.minutes) * 100), 'sm')}</div><strong class="time-val">${fmtMinutes(m)}</strong></li>`).join('')}</ul>`
+            : '<p class="muted">Aún no hay tiempo registrado. Pulsa ▶ en una tarea para empezar.</p>'}
+        </article>
+        <article class="card">
+          ${cardHead('Registros', { icon: 'timer', add: 'add-timelog', addData: `data-project="${p.id}"` })}
+          ${logs.length ? `<ul class="rows">${logs.map(l => `
+            <li class="row">
+              <div class="row-main" data-action="edit-timelog" data-id="${l.id}">
+                <span class="row-title">${esc(taskName(l.taskId))}</span>
+                <span class="row-meta">${l.date ? fmtShort(l.date) : ''}${l.note ? ` · ${esc(l.note)}` : ''}</span>
+              </div>
+              <strong class="time-val">${fmtMinutes(l.minutes || 0)}</strong>
+              ${rowActions('timelogs', l.id, 'edit-timelog')}
+            </li>`).join('')}</ul>` : '<p class="muted">Sin registros.</p>'}
+        </article>
+      </section>`;
+  }
+
+  function ideaCard(i, { showProject = true } = {}) {
+    const conv = i.convertedTo;
+    const convTarget = conv && (conv.type === 'task' ? Store.get('tasks', conv.id) : Store.get('projects', conv.id));
+    return `
+      <article class="idea is-${i.status}">
+        <header>
+          <select class="idea-status" data-change="idea-status" data-id="${i.id}" aria-label="Estado de la idea">
+            ${Object.entries(IDEA_STATUS).map(([v, l]) => `<option value="${v}" ${v === i.status ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+          ${i.impact ? `<span class="impact im-${i.impact}">${IMPACT[i.impact]}</span>` : ''}
+          ${showProject ? projectTag(i) : ''}
+        </header>
+        <h3 data-action="edit-idea" data-id="${i.id}">${esc(i.title)}</h3>
+        ${i.body ? `<p data-action="edit-idea" data-id="${i.id}">${esc(i.body)}</p>` : ''}
+        ${conv ? `<p class="converted">${icon('convert')}Convertida en ${conv.type === 'task' ? 'tarea' : 'proyecto'}:
+          ${convTarget ? (conv.type === 'project' ? `<a href="#proyecto/${conv.id}">${esc(convTarget.name)}</a>`
+            : `<button class="linkish" data-action="edit-task" data-id="${conv.id}">${esc(convTarget.title)}</button>`) : 'eliminada'}</p>` : ''}
+        ${attachmentsHTML('ideas', i)}
+        <footer>
+          ${i.status !== 'convertida' ? `
+            <button class="btn ghost sm" data-action="idea-to-task" data-id="${i.id}">${icon('check')}A tarea</button>
+            <button class="btn ghost sm" data-action="idea-to-project" data-id="${i.id}">${icon('briefcase')}A proyecto</button>` : ''}
+          <span class="spacer"></span>
+          ${rowActions('ideas', i.id, 'edit-idea')}
+        </footer>
+      </article>`;
+  }
+
+  function viewIdeas() {
+    const all = Store.all('ideas');
+    const filters = {
+      activas: i => ['nueva', 'evaluando', 'aprobada'].includes(i.status),
+      nueva: i => i.status === 'nueva', evaluando: i => i.status === 'evaluando', aprobada: i => i.status === 'aprobada',
+      descartada: i => i.status === 'descartada', convertida: i => i.status === 'convertida', todas: () => true,
+    };
+    const byProject = i => !ui.ideaProject || (ui.ideaProject === 'none' ? !i.projectId : i.projectId === ui.ideaProject);
+    const IMP = { alto: 0, medio: 1, bajo: 2 };
+    const list = all.filter(filters[ui.ideaFilter]).filter(byProject)
+      .sort((a, b) => ((IMP[a.impact] ?? 3) - (IMP[b.impact] ?? 3)) || b.createdAt.localeCompare(a.createdAt));
+    const count = k => all.filter(filters[k]).filter(byProject).length;
+    return `${pageHead('Ideas', 'bandeja', 'Apunta ideas al vuelo, adjunta referencias y conviértelas en tareas o proyectos.')}
+      <form class="capture" data-form="idea-capture" autocomplete="off">
+        ${icon('bulb')}
+        <input name="title" placeholder="Apunta una idea y pulsa Enter…" aria-label="Nueva idea">
+        <select name="projectId" aria-label="Proyecto">${Object.entries(projectOptions())
+          .map(([v, l]) => `<option value="${v}" ${v === (ui.ideaProject !== 'none' ? ui.ideaProject : '') ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+        <button class="btn primary" type="submit">${icon('plus')}Añadir</button>
+      </form>
+      <div class="toolbar">
+        ${chips('filter-ideas', ui.ideaFilter, [
+          ['activas', 'Activas', count('activas')], ['nueva', 'Nuevas', count('nueva')], ['evaluando', 'Evaluando', count('evaluando')],
+          ['aprobada', 'Aprobadas', count('aprobada')], ['convertida', 'Convertidas', count('convertida')],
+          ['descartada', 'Descartadas', count('descartada')], ['todas', 'Todas', count('todas')],
+        ])}
+        <select class="status-select" data-change="ideas-project" aria-label="Filtrar por proyecto">
+          <option value="">Todos los proyectos</option>
+          <option value="none" ${ui.ideaProject === 'none' ? 'selected' : ''}>Sin proyecto</option>
+          ${Store.all('projects').map(p => `<option value="${p.id}" ${ui.ideaProject === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      ${list.length ? `<section class="ideas-grid">${list.map(i => ideaCard(i)).join('')}</section>`
+        : `<section class="card">${emptyState('No hay ideas aquí. ¡Apunta la primera arriba!', '', '')}</section>`}`;
   }
 
   function weatherSettings() {
@@ -745,6 +1263,7 @@
   const RENDERERS = {
     panel: viewPanel, calendario: viewCalendar, tareas: viewTasks, correos: viewEmails,
     entregas: viewDeliveries, notas: viewNotes, ajustes: viewSettings,
+    proyectos: viewProjects, proyecto: viewProject, ideas: viewIdeas,
   };
 
   /* ---------- Navegación ---------- */
@@ -754,8 +1273,10 @@
     { id: 'calendario', label: 'Calendario', icon: 'calendar' },
     { id: 'tareas', label: 'Tareas', icon: 'check' },
     { id: 'correos', label: 'Correos', icon: 'mail' },
-    { id: 'entregas', label: 'Entregas', icon: 'package' },
     { id: 'notas', label: 'Notas', icon: 'note' },
+    { id: 'proyectos', label: 'Proyectos', icon: 'briefcase', group: 'Trabajo' },
+    { id: 'ideas', label: 'Ideas', icon: 'bulb' },
+    { id: 'entregas', label: 'Entregas', icon: 'package' },
   ];
 
   function renderNav() {
@@ -763,9 +1284,12 @@
       tareas: pendingTasks().length,
       correos: pendingEmails().length,
       entregas: upcomingDeliveries(today(), 7).length,
+      ideas: Store.all('ideas').filter(i => i.status === 'nueva').length,
     };
+    const navView = ui.view === 'proyecto' ? 'proyectos' : ui.view;
     $('#nav').innerHTML = NAV.map(n => `
-      <a href="#${n.id}" class="nav-item ${ui.view === n.id ? 'active' : ''}">
+      ${n.group ? `<span class="nav-label">${n.group}</span>` : ''}
+      <a href="#${n.id}" class="nav-item ${navView === n.id ? 'active' : ''}">
         ${icon(n.icon)}<span>${n.label}</span>
         ${counts[n.id] ? `<span class="badge">${counts[n.id]}</span>` : ''}
       </a>`).join('');
@@ -780,17 +1304,69 @@
         <span>${label}</span>
       </${action ? 'button' : 'a'}>`;
     $('#tabbar').innerHTML = NAV.filter(n => !MORE.some(m => m.id === n.id))
-      .map(n => tab(`#${n.id}`, n.icon, n.label, ui.view === n.id, counts[n.id])).join('')
+      .map(n => tab(`#${n.id}`, n.icon, n.label, navView === n.id, counts[n.id])).join('')
       + tab('', 'grid', 'Más', inMore, moreCount, 'open-more');
     $('#fab').hidden = ui.view === 'ajustes';
     $('#sync-indicator').innerHTML = syncPill();
+    renderTimer();
   }
 
   const MORE = [
+    { id: 'ideas', label: 'Ideas', icon: 'bulb' },
+    { id: 'correos', label: 'Correos', icon: 'mail' },
     { id: 'entregas', label: 'Entregas', icon: 'package' },
     { id: 'notas', label: 'Notas', icon: 'note' },
     { id: 'ajustes', label: 'Ajustes', icon: 'settings' },
   ];
+
+  /* ---------- Cronómetro ---------- */
+
+  function elapsedText(startISO) {
+    const sec = Math.max(0, Math.floor((Date.now() - new Date(startISO)) / 1000));
+    return `${pad(Math.floor(sec / 3600))}:${pad(Math.floor(sec / 60) % 60)}:${pad(sec % 60)}`;
+  }
+
+  function renderTimer() {
+    const tm = Store.getSetting('timer');
+    const task = tm && Store.get('tasks', tm.taskId);
+    const html = task ? `
+      <div class="timer-pill">
+        <span class="rec-dot"></span>
+        <a class="timer-info" href="#proyecto/${task.projectId}">
+          <strong data-timer-elapsed>${elapsedText(tm.start)}</strong>
+          <span>${esc(task.title)}</span>
+        </a>
+        <button class="icon-btn" data-action="timer-stop" title="Parar y guardar">${icon('stop')}</button>
+      </div>` : '';
+    document.querySelectorAll('[data-timer-slot]').forEach(el => { el.innerHTML = html; });
+    document.body.classList.toggle('has-timer', !!task);
+  }
+
+  function stopTimer({ silent = false } = {}) {
+    const tm = Store.getSetting('timer');
+    if (!tm) return;
+    const minutes = Math.round((Date.now() - new Date(tm.start)) / 60000);
+    const task = Store.get('tasks', tm.taskId);
+    Store.batch(() => {
+      if (minutes >= 1) {
+        Store.add('timelogs', { taskId: tm.taskId, projectId: task ? task.projectId : tm.projectId, date: toISO(new Date(tm.start)), minutes, note: '' });
+      }
+      Store.setSetting('timer', null);
+    });
+    if (!silent) toast(minutes >= 1 ? `Registrado: ${fmtMinutes(minutes)}` : 'Menos de un minuto: no se registra');
+  }
+
+  function toggleTimer(taskId) {
+    const tm = Store.getSetting('timer');
+    if (tm && tm.taskId === taskId) return stopTimer();
+    if (tm) stopTimer({ silent: true });
+    const task = Store.get('tasks', taskId);
+    Store.batch(() => {
+      Store.setSetting('timer', { taskId, projectId: task.projectId || '', start: new Date().toISOString() });
+      if (statusOf(task) === 'todo') Store.update('tasks', taskId, { status: 'doing' });
+    });
+    toast('Cronómetro en marcha');
+  }
 
   function openSheet(title, body) {
     $('#modal-root').innerHTML = `
@@ -809,19 +1385,45 @@
     </${attrs.startsWith('href') ? 'a' : 'button'}>`;
 
   function render() {
+    if (ui.view === 'proyecto' && !Store.get('projects', ui.projectId)) ui.view = 'proyectos';
     renderNav();
     $('#view').innerHTML = RENDERERS[ui.view]();
+    hydrateThumbs();
   }
 
+  // Rutas: #vista, #proyecto/<id> y #proyecto/<id>/<pestaña>
   function route() {
-    const v = location.hash.slice(1);
-    ui.view = VIEWS.includes(v) ? v : 'panel';
+    const [v, id, tab] = location.hash.slice(1).split('/');
+    if (v === 'proyecto' && id) {
+      if (ui.projectId !== id) ui.boardPhase = '';
+      ui.view = 'proyecto';
+      ui.projectId = id;
+      ui.projectTab = PROJECT_TABS.some(([k]) => k === tab) ? tab : 'tablero';
+    } else {
+      ui.view = VIEWS.includes(v) ? v : 'panel';
+    }
     closeModal();
     render();
     $('#main').scrollTop = 0;
   }
 
   /* ---------- Formularios (modal) ---------- */
+
+  const optionsHTML = (options, v) => Object.entries(options)
+    .map(([val, lab]) => `<option value="${esc(val)}" ${val === v ? 'selected' : ''}>${esc(lab)}</option>`).join('');
+
+  const subtaskRowHTML = (s = {}) => `
+    <li data-sub-id="${esc(s.id || '')}">
+      <input type="checkbox" ${s.done ? 'checked' : ''} aria-label="Paso hecho">
+      <input type="text" value="${esc(s.title || '')}" placeholder="Describe el paso…">
+      <button type="button" class="icon-btn xs" data-sub-del title="Quitar paso">${icon('x')}</button>
+    </li>`;
+
+  const collectSubtasks = form => [...form.querySelectorAll('[data-subtasks] li')].map(li => ({
+    id: li.dataset.subId || uidLocal('s'),
+    title: li.querySelector('input[type=text]').value.trim(),
+    done: li.querySelector('input[type=checkbox]').checked,
+  })).filter(s => s.title);
 
   function fieldHTML(f, value) {
     const v = value ?? f.default ?? '';
@@ -831,8 +1433,13 @@
     if (f.type === 'textarea') {
       input = `<textarea id="${id}" name="${f.name}" rows="${f.rows || 4}" ${req} placeholder="${esc(f.placeholder || '')}">${esc(v)}</textarea>`;
     } else if (f.type === 'select') {
-      input = `<select id="${id}" name="${f.name}">${Object.entries(f.options)
-        .map(([val, lab]) => `<option value="${val}" ${val === v ? 'selected' : ''}>${esc(lab)}</option>`).join('')}</select>`;
+      input = `<select id="${id}" name="${f.name}">${optionsHTML(f.options, v)}</select>`;
+    } else if (f.type === 'subtasks') {
+      return `<div class="field wide"><span>${f.label}</span>
+        <ul class="subtasks" data-subtasks>${(Array.isArray(value) ? value : []).map(subtaskRowHTML).join('')}</ul>
+        <button type="button" class="btn ghost sm" data-sub-add>${icon('plus')}Añadir paso</button></div>`;
+    } else if (f.type === 'info') {
+      return value ? `<div class="field wide info-field">${value}</div>` : '';
     } else if (f.type === 'swatch') {
       return `<div class="field ${f.wide ? 'wide' : ''}"><span>${f.label}</span><div class="swatches">
         ${Object.entries(COLORS).map(([c, lab]) => `
@@ -846,7 +1453,7 @@
     return `<label class="field ${f.wide ? 'wide' : ''}" for="${id}"><span>${f.label}${f.required ? ' <em>*</em>' : ''}</span>${input}</label>`;
   }
 
-  function openForm({ title, fields, values = {}, validate, onSave, onDelete }) {
+  function openForm({ title, fields, values = {}, validate, onSave, onDelete, deleteConfirm }) {
     const root = $('#modal-root');
     root.innerHTML = `
       <div class="modal-backdrop">
@@ -872,6 +1479,10 @@
       ev.preventDefault();
       const data = Object.fromEntries(new FormData(form));
       Object.keys(data).forEach(k => { if (typeof data[k] === 'string') data[k] = data[k].trim(); });
+      fields.forEach(f => {
+        if (f.collect) data[f.name] = f.collect(form);
+        if (f.type === 'info') delete data[f.name];
+      });
       const missing = fields.find(f => f.required && !data[f.name]);
       if (missing) {
         err.textContent = `Completa el campo “${missing.label}”.`;
@@ -887,10 +1498,32 @@
 
     const del = $('[data-modal-delete]', root);
     if (del) del.addEventListener('click', () => {
-      if (!confirm('¿Eliminar este elemento?')) return;
+      if (!confirm(deleteConfirm || '¿Eliminar este elemento?')) return;
       onDelete();
       closeModal();
       toast('Eliminado');
+    });
+
+    // Subtareas: añadir / quitar pasos; Enter en un paso crea el siguiente.
+    const addSub = () => {
+      const list = $('[data-subtasks]', form);
+      list.insertAdjacentHTML('beforeend', subtaskRowHTML());
+      list.lastElementChild.querySelector('input[type=text]').focus();
+    };
+    form.addEventListener('click', ev => {
+      if (ev.target.closest('[data-sub-add]')) addSub();
+      const rm = ev.target.closest('[data-sub-del]');
+      if (rm) rm.closest('li').remove();
+    });
+    form.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter' && ev.target.closest('[data-subtasks]')) { ev.preventDefault(); addSub(); }
+    });
+
+    // Selects que dependen de otro (fase según proyecto).
+    fields.filter(f => f.dependsOn).forEach(f => {
+      form.elements[f.dependsOn]?.addEventListener('change', e => {
+        form.elements[f.name].innerHTML = optionsHTML(f.optionsFor(e.target.value), '');
+      });
     });
 
     setTimeout(() => form.querySelector('input:not([type=radio]), textarea, select')?.focus(), 30);
@@ -904,17 +1537,48 @@
   const modalOpen = () => !!$('#modal-root').firstElementChild;
 
   // Crea o edita un elemento de una colección con el mismo formulario.
-  function editItem(col, id, { title, fields, defaults = {}, validate, toData = d => d }) {
+  function editItem(col, id, { title, fields, defaults = {}, extra = {}, validate, toData = d => d, afterCreate, onDelete, deleteConfirm }) {
     const item = id ? Store.get(col, id) : null;
     openForm({
       title: item ? title[1] : title[0],
       fields,
-      values: item || defaults,
+      values: { ...(item || defaults), ...extra },
       validate,
-      onSave: data => item ? Store.update(col, id, toData(data)) : Store.add(col, toData(data)),
-      onDelete: item ? () => Store.remove(col, id) : null,
+      deleteConfirm,
+      onSave: data => {
+        if (item) return Store.update(col, id, toData(data));
+        const created = Store.add(col, toData(data));
+        if (afterCreate) afterCreate(created);
+        return created;
+      },
+      onDelete: item ? (onDelete ? () => onDelete(id) : () => removeItem(col, id)) : null,
     });
   }
+
+  // Borra un elemento y sus archivos adjuntos.
+  function removeItem(col, id) {
+    const item = Store.get(col, id);
+    if (col === 'projects') return deleteProject(id);
+    (item && item.attachments || []).forEach(a => Files.remove(a.id));
+    Store.remove(col, id);
+  }
+
+  // Al borrar un proyecto, sus tareas, entregas e ideas se conservan sin proyecto.
+  function deleteProject(id) {
+    const p = Store.get('projects', id);
+    if (!p) return;
+    (p.attachments || []).forEach(a => Files.remove(a.id));
+    Store.batch(() => {
+      ['tasks', 'deliveries', 'ideas'].forEach(c => Store.all(c)
+        .filter(x => x.projectId === id)
+        .forEach(x => Store.update(c, x.id, { projectId: '', phaseId: '' })));
+      Store.remove('projects', id);
+    });
+    if (ui.view === 'proyecto') location.hash = '#proyectos';
+  }
+
+  const nextOrder = (pid, status) => projectTasks(pid)
+    .filter(t => statusOf(t) === status).reduce((m, t) => Math.max(m, (t.order ?? -1) + 1), 0);
 
   const FORMS = {
     event: (id, date) => editItem('events', id, {
@@ -931,18 +1595,36 @@
       ],
       validate: d => d.start && d.end && d.end <= d.start ? 'La hora de fin debe ser posterior a la de inicio.' : null,
     }),
-    task: id => editItem('tasks', id, {
-      title: ['Nueva tarea', 'Editar tarea'],
-      defaults: { priority: 'media', due: ui.view === 'panel' ? ui.date : '' },
-      fields: [
-        { name: 'title', label: 'Tarea', required: true, wide: true, placeholder: '¿Qué hay que hacer?' },
-        { name: 'priority', label: 'Prioridad', type: 'select', options: PRIORITY },
-        { name: 'due', label: 'Fecha límite', type: 'date' },
-        { name: 'project', label: 'Proyecto', wide: true, placeholder: 'Opcional' },
-        { name: 'notes', label: 'Notas', type: 'textarea', wide: true, rows: 3 },
-      ],
-      toData: d => ({ ...d, done: id ? Store.get('tasks', id).done : false }),
-    }),
+    task: (id, preset = {}, afterCreate) => {
+      const item = id ? Store.get('tasks', id) : null;
+      const pid = item ? item.projectId || '' : preset.projectId || '';
+      const mins = id ? minutesFor('taskId', id) : 0;
+      editItem('tasks', id, {
+        title: ['Nueva tarea', 'Editar tarea'],
+        defaults: {
+          priority: 'media', status: 'todo', projectId: '', phaseId: '', subtasks: [],
+          due: ui.view === 'panel' && !preset.projectId ? ui.date : '', ...preset,
+        },
+        extra: item ? { status: statusOf(item), timeInfo: mins ? `${icon('timer')}Tiempo registrado: <strong>${fmtMinutes(mins)}</strong>` : '' } : {},
+        fields: [
+          { name: 'title', label: 'Tarea', required: true, wide: true, placeholder: '¿Qué hay que hacer?' },
+          { name: 'projectId', label: 'Proyecto', type: 'select', options: projectOptions(pid) },
+          { name: 'phaseId', label: 'Fase', type: 'select', options: phaseOptions(pid), dependsOn: 'projectId', optionsFor: phaseOptions },
+          { name: 'status', label: 'Estado', type: 'select', options: TASK_STATUS },
+          { name: 'priority', label: 'Prioridad', type: 'select', options: PRIORITY },
+          { name: 'due', label: 'Fecha límite', type: 'date' },
+          { name: 'subtasks', label: 'Subtareas', type: 'subtasks', collect: collectSubtasks },
+          { name: 'notes', label: 'Notas', type: 'textarea', wide: true, rows: 3 },
+          { name: 'timeInfo', type: 'info' },
+        ],
+        toData: d => {
+          const out = { ...d, done: d.status === 'done', project: '' };
+          if (!item || item.status !== d.status || item.projectId !== d.projectId) out.order = nextOrder(d.projectId, d.status);
+          return out;
+        },
+        afterCreate,
+      });
+    },
     email: id => editItem('emails', id, {
       title: ['Añadir correo', 'Editar correo'],
       defaults: { status: 'sin_leer', priority: 'media', date: today() },
@@ -955,16 +1637,91 @@
         { name: 'notes', label: 'Qué hay que hacer', type: 'textarea', wide: true, rows: 3 },
       ],
     }),
-    delivery: id => editItem('deliveries', id, {
+    delivery: (id, preset = {}) => editItem('deliveries', id, {
       title: ['Nueva entrega', 'Editar entrega'],
-      defaults: { date: addDays(today(), 1) },
+      defaults: { date: addDays(today(), 1), projectId: '', ...preset },
       fields: [
         { name: 'title', label: 'Entrega', required: true, wide: true, placeholder: 'Ej. Informe mensual' },
         { name: 'date', label: 'Fecha límite', type: 'date', required: true },
-        { name: 'project', label: 'Proyecto', placeholder: 'Opcional' },
+        { name: 'projectId', label: 'Proyecto', type: 'select', options: projectOptions(id ? Store.get('deliveries', id).projectId : preset.projectId) },
         { name: 'notes', label: 'Notas', type: 'textarea', wide: true, rows: 3 },
       ],
-      toData: d => ({ ...d, done: id ? Store.get('deliveries', id).done : false }),
+      toData: d => ({ ...d, project: '', done: id ? Store.get('deliveries', id).done : false }),
+    }),
+    project: (id, preset = {}, afterCreate) => editItem('projects', id, {
+      title: ['Nuevo proyecto', 'Editar proyecto'],
+      defaults: { status: 'activo', color: 'aqua', start: today(), phasesText: 'Planificación\nEjecución\nEntrega', ...preset },
+      fields: [
+        { name: 'name', label: 'Nombre', required: true, wide: true, placeholder: 'Ej. Web de cliente X' },
+        { name: 'client', label: 'Cliente', placeholder: 'Opcional' },
+        { name: 'status', label: 'Estado', type: 'select', options: PROJECT_STATUS },
+        { name: 'start', label: 'Inicio', type: 'date' },
+        { name: 'due', label: 'Entrega final', type: 'date' },
+        { name: 'color', label: 'Color', type: 'swatch', wide: true },
+        { name: 'description', label: 'Descripción', type: 'textarea', wide: true, rows: 3 },
+        ...(id ? [] : [{ name: 'phasesText', label: 'Fases (una por línea)', type: 'textarea', wide: true, rows: 4 }]),
+      ],
+      validate: d => d.start && d.due && d.due < d.start ? 'La entrega final no puede ser anterior al inicio.' : null,
+      toData: d => {
+        const out = { ...d };
+        delete out.phasesText;
+        if (!id) {
+          out.phases = (d.phasesText || '').split('\n').map(s => s.trim()).filter(Boolean).map(name => ({ id: uidLocal('ph'), name }));
+          out.links = [];
+          out.attachments = [];
+        }
+        return out;
+      },
+      afterCreate: created => { if (afterCreate) afterCreate(created); location.hash = `#proyecto/${created.id}`; },
+      deleteConfirm: '¿Eliminar el proyecto? Sus tareas, entregas e ideas se conservan, sin proyecto.',
+    }),
+    idea: (id, preset = {}) => editItem('ideas', id, {
+      title: ['Nueva idea', 'Editar idea'],
+      defaults: { status: 'nueva', impact: '', projectId: '', ...preset },
+      fields: [
+        { name: 'title', label: 'Idea', required: true, wide: true, placeholder: '¿Qué se te ha ocurrido?' },
+        { name: 'projectId', label: 'Proyecto', type: 'select', options: projectOptions(id ? Store.get('ideas', id).projectId : preset.projectId) },
+        { name: 'impact', label: 'Valoración', type: 'select', options: { '': 'Sin valorar', ...IMPACT } },
+        { name: 'status', label: 'Estado', type: 'select', options: IDEA_STATUS },
+        { name: 'body', label: 'Detalles', type: 'textarea', wide: true, rows: 4, placeholder: 'Contexto, por qué merece la pena, referencias…' },
+      ],
+      toData: d => (id ? d : { ...d, attachments: [] }),
+    }),
+    timelog: (id, preset = {}) => {
+      const item = id ? Store.get('timelogs', id) : null;
+      const pid = item ? item.projectId : preset.projectId;
+      const taskOpts = { '': 'Sin tarea' };
+      boardSort(projectTasks(pid)).forEach(t => { taskOpts[t.id] = t.title; });
+      const m = item ? item.minutes || 0 : 30;
+      editItem('timelogs', id, {
+        title: ['Añadir tiempo', 'Editar tiempo'],
+        defaults: { date: today(), taskId: '' },
+        extra: { hours: String(Math.floor(m / 60)), mins: String(m % 60) },
+        fields: [
+          { name: 'taskId', label: 'Tarea', type: 'select', options: taskOpts, wide: true },
+          { name: 'date', label: 'Fecha', type: 'date', required: true },
+          { name: 'hours', label: 'Horas', type: 'number' },
+          { name: 'mins', label: 'Minutos', type: 'number' },
+          { name: 'note', label: 'Nota', wide: true, placeholder: 'Opcional' },
+        ],
+        validate: d => (Number(d.hours) || 0) * 60 + (Number(d.mins) || 0) > 0 ? null : 'Indica cuánto tiempo.',
+        toData: d => ({
+          taskId: d.taskId, projectId: pid, date: d.date, note: d.note,
+          minutes: (Number(d.hours) || 0) * 60 + (Number(d.mins) || 0),
+        }),
+      });
+    },
+    link: pid => openForm({
+      title: 'Nuevo enlace',
+      fields: [
+        { name: 'url', label: 'Dirección (URL)', required: true, wide: true, placeholder: 'https://…' },
+        { name: 'title', label: 'Nombre', wide: true, placeholder: 'Ej. Diseños en Figma' },
+      ],
+      onSave: d => {
+        const url = /^https?:\/\//i.test(d.url) ? d.url : `https://${d.url}`;
+        const p = Store.get('projects', pid);
+        Store.update('projects', pid, { links: [...(p.links || []), { id: uidLocal('l'), title: d.title, url }] });
+      },
     }),
     note: id => editItem('notes', id, {
       title: ['Nueva nota', 'Editar nota'],
@@ -980,15 +1737,94 @@
 
   const toggle = (col, id) => { const x = Store.get(col, id); if (x) Store.update(col, id, { done: !x.done }); };
 
+  function toggleTask(id) {
+    const t = Store.get('tasks', id);
+    if (!t) return;
+    const done = !t.done;
+    const prev = statusOf(t);
+    Store.batch(() => {
+      Store.update('tasks', id, { done, status: done ? 'done' : (prev === 'done' ? 'todo' : prev) });
+      if (done && timerRunning(id)) stopTimer();
+    });
+  }
+
+  // Mueve una tarjeta del tablero a otra columna y posición.
+  function moveTask(id, status, beforeId) {
+    const t = Store.get('tasks', id);
+    if (!t) return;
+    const col = boardSort(projectTasks(t.projectId).filter(x => statusOf(x) === status && x.id !== id));
+    let idx = beforeId ? col.findIndex(x => x.id === beforeId) : col.length;
+    if (idx < 0) idx = col.length;
+    col.splice(idx, 0, t);
+    Store.batch(() => col.forEach((x, i) => {
+      const patch = {};
+      if (x.order !== i) patch.order = i;
+      if (x.id === id && statusOf(x) !== status) { patch.status = status; patch.done = status === 'done'; }
+      if (Object.keys(patch).length) Store.update('tasks', x.id, patch);
+    }));
+    if (status === 'done' && timerRunning(id)) stopTimer();
+  }
+
+  function updatePhases(fn) {
+    const p = Store.get('projects', ui.projectId);
+    Store.update('projects', p.id, { phases: fn((p.phases || []).slice()) });
+  }
+
+  // Adjunta archivos a una idea o proyecto.
+  let attachTarget = null;
+  async function attachFiles(col, id, fileList) {
+    const files = [...fileList];
+    if (!files.length) return;
+    toast(files.length > 1 ? `Guardando ${files.length} archivos…` : 'Guardando archivo…');
+    const metas = [];
+    for (const f of files) {
+      try { metas.push(await Files.save(f)); } catch (e) { console.warn(e); }
+    }
+    const item = Store.get(col, id);
+    if (!item) return;
+    Store.update(col, id, { attachments: [...(item.attachments || []), ...metas] });
+    const local = metas.filter(m => !m.cloud).length;
+    toast(!metas.length ? 'No se pudo guardar el archivo'
+      : local && Sync.cloud() ? `${local} archivo(s) demasiado grande(s): solo en este dispositivo`
+      : local ? 'Guardado en este dispositivo (se subirá al iniciar sesión)'
+      : 'Archivo adjuntado');
+  }
+
+  // Sube los adjuntos que se añadieron sin sesión iniciada.
+  let flushing = false;
+  async function flushAttachments() {
+    if (flushing || !Sync.cloud()) return;
+    flushing = true;
+    try {
+      for (const col of ['ideas', 'projects']) {
+        for (const item of Store.all(col).slice()) {
+          const pending = (item.attachments || []).filter(a => !a.cloud && a.size <= Files.MAX_CLOUD);
+          if (!pending.length) continue;
+          const done = new Set();
+          for (const a of pending) if (await Files.upload(a)) done.add(a.id);
+          if (!done.size) continue;
+          const fresh = Store.get(col, item.id);
+          if (fresh) Store.update(col, item.id, { attachments: fresh.attachments.map(a => (done.has(a.id) ? { ...a, cloud: true } : a)) });
+        }
+      }
+    } finally {
+      flushing = false;
+    }
+  }
+
   const ACTIONS = {
     'add-event': d => FORMS.event(null, d.date),
     'edit-event': d => FORMS.event(d.id),
-    'add-task': () => FORMS.task(null),
+    'add-task': d => FORMS.task(null, {
+      ...(d.project ? { projectId: d.project } : ui.view === 'proyecto' ? { projectId: ui.projectId } : {}),
+      ...(d.phase ? { phaseId: d.phase } : {}),
+      ...(d.status ? { status: d.status } : {}),
+    }),
     'edit-task': d => FORMS.task(d.id),
-    'toggle-task': d => toggle('tasks', d.id),
+    'toggle-task': d => toggleTask(d.id),
     'add-email': () => FORMS.email(null),
     'edit-email': d => FORMS.email(d.id),
-    'add-delivery': () => FORMS.delivery(null),
+    'add-delivery': d => FORMS.delivery(null, d.project ? { projectId: d.project } : {}),
     'edit-delivery': d => FORMS.delivery(d.id),
     'toggle-delivery': d => toggle('deliveries', d.id),
     'add-note': () => FORMS.note(null),
@@ -999,8 +1835,93 @@
     },
     'delete': d => {
       if (!confirm('¿Eliminar este elemento?')) return;
-      Store.remove(d.col, d.id);
+      removeItem(d.col, d.id);
       toast('Eliminado');
+    },
+
+    // Proyectos
+    'add-project': () => FORMS.project(null),
+    'edit-project': d => FORMS.project(d.id),
+    'filter-projects': d => { ui.projectFilter = d.filter; render(); },
+    'project-tab': d => {
+      ui.projectTab = d.tab;
+      history.replaceState(null, '', `#proyecto/${ui.projectId}${d.tab === 'tablero' ? '' : `/${d.tab}`}`);
+      render();
+    },
+    'board-phase': d => { ui.boardPhase = d.filter; render(); },
+    'phase-add': () => {
+      const name = (prompt('Nombre de la nueva fase:') || '').trim();
+      if (name) updatePhases(ph => [...ph, { id: uidLocal('ph'), name }]);
+    },
+    'phase-rename': d => {
+      const p = Store.get('projects', ui.projectId);
+      const f = (p.phases || []).find(x => x.id === d.phase);
+      const name = (prompt('Nuevo nombre de la fase:', f ? f.name : '') || '').trim();
+      if (name) updatePhases(ph => ph.map(x => (x.id === d.phase ? { ...x, name } : x)));
+    },
+    'phase-move': d => updatePhases(ph => {
+      const i = ph.findIndex(x => x.id === d.phase);
+      const j = i + Number(d.dir);
+      if (i < 0 || j < 0 || j >= ph.length) return ph;
+      [ph[i], ph[j]] = [ph[j], ph[i]];
+      return ph;
+    }),
+    'phase-delete': d => {
+      if (!confirm('¿Eliminar la fase? Sus tareas se conservan, sin fase.')) return;
+      Store.batch(() => {
+        projectTasks(ui.projectId).filter(t => t.phaseId === d.phase).forEach(t => Store.update('tasks', t.id, { phaseId: '' }));
+        updatePhases(ph => ph.filter(x => x.id !== d.phase));
+      });
+      if (ui.boardPhase === d.phase) ui.boardPhase = '';
+    },
+    'add-link': d => FORMS.link(d.id),
+    'remove-link': d => {
+      const p = Store.get('projects', d.id);
+      Store.update('projects', d.id, { links: (p.links || []).filter(l => l.id !== d.link) });
+    },
+    'add-timelog': d => FORMS.timelog(null, { projectId: d.project }),
+    'edit-timelog': d => FORMS.timelog(d.id),
+
+    // Cronómetro
+    'timer-toggle': d => toggleTimer(d.id),
+    'timer-stop': () => stopTimer(),
+
+    // Ideas
+    'add-idea': d => FORMS.idea(null, d.project ? { projectId: d.project } : {}),
+    'edit-idea': d => FORMS.idea(d.id),
+    'filter-ideas': d => { ui.ideaFilter = d.filter; render(); },
+    'idea-to-task': d => {
+      const i = Store.get('ideas', d.id);
+      FORMS.task(null, { title: i.title, notes: i.body || '', projectId: i.projectId || '' }, created =>
+        Store.update('ideas', i.id, { status: 'convertida', convertedTo: { type: 'task', id: created.id } }));
+    },
+    'idea-to-project': d => {
+      const i = Store.get('ideas', d.id);
+      FORMS.project(null, { name: i.title, description: i.body || '' }, created =>
+        Store.update('ideas', i.id, { status: 'convertida', projectId: created.id, convertedTo: { type: 'project', id: created.id } }));
+    },
+
+    // Archivos
+    'attach': d => { attachTarget = { col: d.col, id: d.id }; $('#attach-file').click(); },
+    'open-file': async d => {
+      const w = window.open('', '_blank');
+      try {
+        const u = await Files.url(d.file);
+        if (!u) {
+          if (w) w.close();
+          return toast(Sync.cloud() ? 'Este archivo solo está en el dispositivo donde se subió' : 'Inicia sesión para ver este archivo');
+        }
+        if (w) w.location.href = u; else location.href = u;
+      } catch (e) {
+        if (w) w.close();
+        toast('No se pudo abrir el archivo');
+      }
+    },
+    'remove-file': d => {
+      if (!confirm('¿Quitar este archivo?')) return;
+      const item = Store.get(d.col, d.id);
+      Store.update(d.col, d.id, { attachments: (item.attachments || []).filter(a => a.id !== d.file) });
+      Files.remove(d.file);
     },
     'close-modal': () => closeModal(),
     'sync-signin': () => Sync.signIn(),
@@ -1016,11 +1937,14 @@
     },
     'open-more': () => openSheet('Más', MORE.map(n => sheetItem(n.icon, n.label, `href="#${n.id}"`)).join('')),
     'quick-add': () => {
-      const direct = { calendario: 'add-event', tareas: 'add-task', correos: 'add-email', entregas: 'add-delivery', notas: 'add-note' };
+      const direct = {
+        calendario: 'add-event', tareas: 'add-task', correos: 'add-email', entregas: 'add-delivery', notas: 'add-note',
+        proyectos: 'add-project', proyecto: 'add-task', ideas: 'add-idea',
+      };
       if (direct[ui.view]) return ACTIONS[direct[ui.view]]({});
       openSheet('Crear', [
-        ['calendar', 'Evento', 'add-event'], ['check', 'Tarea', 'add-task'], ['mail', 'Correo', 'add-email'],
-        ['package', 'Entrega', 'add-delivery'], ['note', 'Nota', 'add-note'],
+        ['calendar', 'Evento', 'add-event'], ['check', 'Tarea', 'add-task'], ['briefcase', 'Proyecto', 'add-project'],
+        ['bulb', 'Idea', 'add-idea'], ['package', 'Entrega', 'add-delivery'], ['mail', 'Correo', 'add-email'], ['note', 'Nota', 'add-note'],
       ].map(([ic, label, action]) => sheetItem(ic, label, `data-action="${action}"`)).join(''));
     },
 
@@ -1089,6 +2013,9 @@
     'set-date': el => { ui.date = el.value || today(); render(); },
     'email-status': el => Store.update('emails', el.dataset.id, { status: el.value }),
     'set-name': el => { Store.setSetting('name', el.value.trim()); toast('Nombre guardado'); },
+    'project-status': el => Store.update('projects', el.dataset.id, { status: el.value }),
+    'idea-status': el => Store.update('ideas', el.dataset.id, { status: el.value }),
+    'ideas-project': el => { ui.ideaProject = el.value; render(); },
   };
 
   /* ---------- Toast ---------- */
@@ -1120,16 +2047,77 @@
 
   function init() {
     Store.init(seed);
+    migrateWork();
     Store.subscribe(render);
+    // Lo que llega de otro dispositivo puede venir con el formato antiguo.
+    Store.subscribe(meta => { if (meta.fromSync) migrateWork(); });
 
     Sync.setChooser(chooseSyncStart);
     let lastSyncStatus = Sync.state.status;
     Sync.subscribe(s => {
       $('#sync-indicator').innerHTML = syncPill();
       if (ui.view === 'ajustes' && s.status !== lastSyncStatus && !modalOpen()) render();
+      if (s.status === 'synced' && lastSyncStatus !== 'synced') flushAttachments();
       lastSyncStatus = s.status;
     });
     Sync.boot();
+
+    // Captura rápida de ideas.
+    document.addEventListener('submit', ev => {
+      const form = ev.target;
+      if (form.dataset.form !== 'idea-capture') return;
+      ev.preventDefault();
+      const title = form.elements.title.value.trim();
+      if (!title) return;
+      Store.add('ideas', { title, body: '', projectId: form.elements.projectId.value, status: 'nueva', impact: '', attachments: [] });
+      toast('Idea guardada');
+      $('.capture input[name=title]')?.focus();
+    });
+
+    // Arrastrar: tarjetas del tablero y archivos sobre las zonas de adjuntos.
+    let dragId = null;
+    const clearDrop = () => document.querySelectorAll('.drop-over').forEach(e => e.classList.remove('drop-over'));
+    const hasFiles = ev => [...(ev.dataTransfer?.types || [])].includes('Files');
+    document.addEventListener('dragstart', ev => {
+      const card = ev.target.closest?.('.kcard');
+      if (!card) return;
+      dragId = card.dataset.id;
+      ev.dataTransfer.setData('text/plain', dragId);
+      ev.dataTransfer.effectAllowed = 'move';
+      requestAnimationFrame(() => card.classList.add('dragging'));
+    });
+    document.addEventListener('dragend', () => {
+      dragId = null;
+      clearDrop();
+      document.querySelectorAll('.dragging').forEach(e => e.classList.remove('dragging'));
+    });
+    document.addEventListener('dragover', ev => {
+      const zone = dragId ? ev.target.closest?.('.kcol') : hasFiles(ev) ? ev.target.closest?.('[data-drop-attach]') : null;
+      if (hasFiles(ev) || zone) ev.preventDefault(); // evita que el navegador abra el archivo
+      if (zone && !zone.classList.contains('drop-over')) { clearDrop(); zone.classList.add('drop-over'); }
+      if (!zone) clearDrop();
+    });
+    document.addEventListener('drop', ev => {
+      if (hasFiles(ev)) {
+        ev.preventDefault();
+        clearDrop();
+        const zone = ev.target.closest?.('[data-drop-attach]');
+        if (zone) attachFiles(zone.dataset.col, zone.dataset.id, ev.dataTransfer.files);
+        return;
+      }
+      const col = ev.target.closest?.('.kcol');
+      if (!col || !dragId) return;
+      ev.preventDefault();
+      const before = ev.target.closest('.kcard');
+      moveTask(dragId, col.dataset.status, before && before.dataset.id !== dragId ? before.dataset.id : null);
+    });
+
+    $('#attach-file').addEventListener('change', ev => {
+      const files = ev.target.files;
+      if (attachTarget && files.length) attachFiles(attachTarget.col, attachTarget.id, files);
+      attachTarget = null;
+      setTimeout(() => { ev.target.value = ''; }, 0);
+    });
 
     document.addEventListener('click', ev => {
       if (ev.target.classList.contains('modal-backdrop')) return closeModal();
@@ -1167,6 +2155,8 @@
 
     // Reloj en vivo sin repintar toda la vista.
     setInterval(() => {
+      const tm = Store.getSetting('timer');
+      if (tm) document.querySelectorAll('[data-timer-elapsed]').forEach(el => { el.textContent = elapsedText(tm.start); });
       const t = $('[data-clock]');
       if (!t) return;
       const { hm, s } = clockParts();

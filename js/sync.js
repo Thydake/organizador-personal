@@ -65,7 +65,10 @@ const Sync = (() => {
   /* ---------- Firebase ---------- */
 
   const configured = () => !!(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey);
-  const docRef = () => db.collection('users').doc(user.uid);
+  // v2: el estado vive en users/{uid}/state/main. El documento users/{uid}
+  // (versión anterior) solo se lee una vez para migrar.
+  const docRef = () => db.collection('users').doc(user.uid).collection('state').doc('main');
+  const legacyRef = () => db.collection('users').doc(user.uid);
   const parse = data => { try { return JSON.parse(data.data); } catch (e) { return null; } };
 
   function loadScript(src) {
@@ -141,11 +144,18 @@ const Sync = (() => {
     set({ status: 'syncing', user: { name: u.displayName || '', email: u.email || '', photo: u.photoURL || '' } });
     try {
       const snap = await docRef().get();
+      let remote = snap.exists ? parse(snap.data()) : null;
+      if (!remote) {
+        const old = await legacyRef().get().catch(() => null);
+        if (old && old.exists) remote = parse(old.data());
+      }
       let first = true;
       try { first = !localStorage.getItem(FLAG(u.uid)); } catch (e) { /* sin almacenamiento */ }
-      if (snap.exists && first) {
-        const remote = parse(snap.data());
-        if (remote && (await chooser()) === 'cloud') Store.replace(remote);
+      if (remote && first) {
+        if ((await chooser()) === 'cloud') Store.replace(remote);
+        else Store.replace(merge(Store.exportData(), remote));
+      } else if (remote && !snap.exists) {
+        Store.replace(merge(Store.exportData(), remote));
       }
       try { localStorage.setItem(FLAG(u.uid), '1'); } catch (e) { /* sin almacenamiento */ }
       await push();
@@ -203,6 +213,8 @@ const Sync = (() => {
     },
 
     signOut: () => auth && auth.signOut(),
+    // Acceso a Firestore para los archivos adjuntos (null si no hay sesión).
+    cloud: () => (user && db ? { db, uid: user.uid } : null),
     syncNow: () => push().catch(fail),
 
     subscribe(fn) {
